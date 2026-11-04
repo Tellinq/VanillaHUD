@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.polyfrost.oneconfig.api.config.v1.ConfigManager
+import org.polyfrost.oneconfig.api.hud.v1.Hud
+import org.polyfrost.oneconfig.api.hud.v1.HudGroups
 import org.polyfrost.oneconfig.api.hud.v1.HudManager
 import org.polyfrost.oneconfig.internal.ui.hud.resetAllHudProperties
 import org.polyfrost.oneconfig.internal.ui.hud.resetHudPosition
@@ -52,6 +54,7 @@ class HudResizeTest {
         made.clear()
         StatRows.healthRowsOverride = null
         StatRows.mountRowsOverride = null
+        HudManager.isConfigUiOpen = false
         HudTransform.resetFrame()
         Files.deleteIfExists(ConfigManager.active().folder.resolve("vanillahud-customized"))
         ForceDefaultPosition.invalidate()
@@ -159,6 +162,51 @@ class HudResizeTest {
         for ((i, bar) in huds.withIndex().drop(1)) {
             assertEquals(expected[i].first - expected[0].first + 20f, bar.x, 0.01f, "${bar.title} x")
             assertEquals(expected[i].second - expected[0].second + 50f, bar.y, 0.01f, "${bar.title} y")
+        }
+    }
+
+    @Test
+    fun `moving the hotbar group as a block keeps the cluster's layout and its anchors`() {
+        screen(640, 360)
+        val huds = cluster()
+        huds.forEach(::settled)
+        val parents = huds.map { it.anchorParent }
+        val starts: Map<Hud, Pair<Float, Float>> = huds.associateWith { it.x to it.y }
+        HudManager.isConfigUiOpen = true
+
+        HudGroups.moveFrom(huds, starts, -100f, -60f)
+        repeat(3) { ForceDefaultPosition.tick() }
+
+        for ((i, hud) in huds.withIndex()) {
+            val (x, y) = starts.getValue(hud)
+            assertAt(hud, x - 100f, y - 60f, 640, 360)
+            assertSame(parents[i], hud.anchorParent, "${hud.title} should keep its anchor")
+        }
+    }
+
+    @Test
+    fun `scaling the hotbar group as a block survives the anchors being restored`() {
+        screen(640, 360)
+        val huds = cluster()
+        huds.forEach(::settled)
+        val parents = huds.map { it.anchorParent }
+        val starts: Map<Hud, Pair<Float, Float>> = huds.associateWith { it.x to it.y }
+        val pivotX = 320f
+        val pivotY = 360f
+        HudManager.isConfigUiOpen = true
+
+        val base = huds.first().hudScale
+        assertEquals(1.5f, HudGroups.scaling(huds, pivotX, pivotY).apply(1.5f), 0.001f)
+        repeat(3) {
+            ForceDefaultPosition.tick()
+            VanillaHud.refreshAll()
+        }
+
+        for ((i, hud) in huds.withIndex()) {
+            val (x, y) = starts.getValue(hud)
+            assertEquals(base * 1.5f, hud.hudScale, 0.001f, "${hud.title} scale")
+            assertAt(hud, pivotX + (x - pivotX) * 1.5f, pivotY + (y - pivotY) * 1.5f, 640, 360)
+            assertSame(parents[i], hud.anchorParent, "${hud.title} should keep its anchor")
         }
     }
 
