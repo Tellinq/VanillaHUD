@@ -14,7 +14,6 @@ import org.polyfrost.vanillahud.hud.Huds;
 import org.polyfrost.vanillahud.hud.TabListHud;
 import org.polyfrost.vanillahud.hud.VanillaHud;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
@@ -56,11 +55,6 @@ public class GuiMixinTabList {
     }
     *///?}
 
-    @Unique
-    private boolean vanillahud$keyHeld;
-    @Unique
-    private boolean vanillahud$toggled;
-
     @ModifyExpressionValue(
             //? if <26 {
             /*method = "renderTabList",
@@ -75,25 +69,11 @@ public class GuiMixinTabList {
             hud.resetOpen();
             return true;
         }
-        boolean open;
-        if (hud.getDisplayMode() == 0) {
-            open = down;
-        } else {
-            if (down && !vanillahud$keyHeld) vanillahud$toggled = !vanillahud$toggled;
-            vanillahud$keyHeld = down;
-            open = vanillahud$toggled;
-        }
-        hud.updateOpen(open);
-        return open || hud.isRendering();
+        return hud.pollOpen(down) || hud.isRendering();
     }
     //?} else {
     /*// 1.8.9 only asks the overlay to render while the list is open, so that call is the
     // transform bracket and the key check below is the open signal the slide animation needs.
-    @Unique
-    private boolean vanillahud$keyHeld;
-    @Unique
-    private boolean vanillahud$toggled;
-
     @ModifyExpressionValue(method = "render", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/options/KeyBinding;isPressed()Z"))
     private boolean vanillahud$displayMode(boolean down) {
@@ -102,16 +82,7 @@ public class GuiMixinTabList {
             hud.resetOpen();
             return true;
         }
-        boolean open;
-        if (hud.getDisplayMode() == 0) {
-            open = down;
-        } else {
-            if (down && !vanillahud$keyHeld) vanillahud$toggled = !vanillahud$toggled;
-            vanillahud$keyHeld = down;
-            open = vanillahud$toggled;
-        }
-        hud.updateOpen(open);
-        return open || hud.isRendering();
+        return hud.pollOpen(down) || hud.isRendering();
     }
 
     @WrapOperation(method = "render", at = @At(value = "INVOKE",

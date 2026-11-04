@@ -10,7 +10,7 @@ import kotlin.math.abs
 
 // HOPEFULLY fixes old hud configs
 object HudConfigMigrator {
-    private const val SCHEMA_VERSION = 14
+    private const val SCHEMA_VERSION = 15
 
     private const val CUSTOM_SCOREBOARD_FILE = "vanillahud-customscoreboard.json"
 
@@ -145,6 +145,7 @@ object HudConfigMigrator {
         if (from < 13) padTextShadows(folder)
         // a folder below 9 has only just been given the designer migration above
         if (from in 9..13) redoLostDesignerMigration(folder)
+        if (from < 15) adoptTabKeyVisibility(folder)
 
         writeStamp(stamp)
     }
@@ -447,6 +448,29 @@ object HudConfigMigrator {
             prim("showShadow")?.asBoolean == false
     } catch (_: Throwable) {
         false
+    }
+
+    /**
+     * the tab list now rests hidden and the player list key flips it like any HUD's keybind, so its old
+     * Held/Toggle dropdown became OneConfig's key mode and hiding it became the Enabled switch
+     */
+    private fun adoptTabKeyVisibility(folder: Path) {
+        val path = folder.resolve("huds").resolve(TAB_FILE)
+        try {
+            val obj = readObject(path) ?: return
+            obj.remove("displayMode")?.let { old ->
+                val toggle = old.takeIf { it.isJsonPrimitive }?.asInt == 1
+                val mode = JsonObject()
+                mode.addProperty("class", "org.polyfrost.oneconfig.api.ui.v1.keybind.KeyPressMode")
+                mode.addProperty("value", if (toggle) "Toggle" else "Held")
+                obj.add("visibilityKeyMode", mode)
+            }
+            val wasHidden = obj.get("hidden")?.takeIf { it.isJsonPrimitive }?.asBoolean == true
+            obj.addProperty("enabled", !wasHidden)
+            obj.addProperty("hidden", true)
+            writeObject(path, obj)
+        } catch (_: Throwable) {
+        }
     }
 
     private fun enumValue(obj: JsonObject, key: String): String? {
