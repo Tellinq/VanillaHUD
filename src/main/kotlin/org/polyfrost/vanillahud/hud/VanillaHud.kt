@@ -388,8 +388,11 @@ abstract class VanillaHud(
 
     val previewing: Boolean get() = previewing()
 
+    /** Whether the game should skip drawing this HUD outside the editor, keybinds included */
+    protected open fun hiddenInGame(): Boolean = effectivelyHidden || HudManager.allHudsHiddenByKey
+
     fun shouldDraw(): Boolean {
-        if (!HudManager.isEditing && hidden) return false
+        if (!HudManager.isEditing && hiddenInGame()) return false
         if (HudManager.isDebugScreenVisible && !showInF3) return false
         if (HudManager.isTabListVisible && !showInTab) return false
         if (!HudManager.overrideShowInScreens && !HudManager.isEditing) {

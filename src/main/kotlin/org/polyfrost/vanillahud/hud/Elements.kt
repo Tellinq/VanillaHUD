@@ -850,8 +850,13 @@ class TabListHud : VanillaHud("vanillahud-tab.json", "Tab List", Category.INFO) 
         showBackground = true
         showShadow = true
         bgColor = 0x80000000.toInt()
+        // only the player list key shows the list
+        hidden = true
         TabListManager.ensureLoaded()
     }
+
+    @Switch(title = "Enabled", description = "Turn the tab list off entirely, so the player list key does nothing.")
+    var enabled = true
 
     @Slider(
         title = "Tab Player Limit",
@@ -860,9 +865,6 @@ class TabListHud : VanillaHud("vanillahud-tab.json", "Tab List", Category.INFO) 
         max = 120f
     )
     var playerLimit = 80
-
-    @Dropdown(title = "Mode", options = ["Held", "Toggle"])
-    var displayMode = 0
 
     @Switch(title = "Animation", description = "Slide the tab list open and closed instead of snapping.")
     var animation = true
@@ -1009,14 +1011,53 @@ class TabListHud : VanillaHud("vanillahud-tab.json", "Tab List", Category.INFO) 
 
     fun isRendering(): Boolean = animOpen || clipFraction() > 0.001f
 
-    // the open state only updates partway through vanilla's render, after the transform has already measured,
-    // so the held key covers the frame the list opens on
+    // vanilla's player list key flips the list's visibility like any HUD's own key would
+    override fun hasVisibilityKeybind() = false
+    override fun hasVisibilityKeyMode() = true
+
+    // hidden is the list's resting state, so the library switch maps onto Enabled instead
+    override var hudEnabled: Boolean
+        get() = enabled
+        set(v) { enabled = v }
+
+    /**
+     * Feeds vanilla's player list key through the HUD's key mode and returns whether the list is open
+     *
+     * Repeated calls with the same [down] change nothing, so every render path can call it
+     */
+    fun pollOpen(down: Boolean): Boolean {
+        visibilityKeyInput(enabled && down)
+        val open = enabled && !effectivelyHidden && !HudManager.allHudsHiddenByKey
+        updateOpen(open)
+        return open
+    }
+
+    override fun resetVisibilityKey() {
+        super.resetVisibilityKey()
+        resetOpen()
+    }
+
+    // the vanilla draw asks before measuring, so polling here opens the list on the frame the key goes down,
+    // and the list keeps drawing while it slides closed
+    override fun hiddenInGame(): Boolean {
+        pollOpen(keyDown())
+        return !isRendering()
+    }
+
+    // OneConfig replays what the game drew, so it has to keep doing that while the list slides closed
+    override fun drawsWhileHidden() = isRendering()
+
+    /** Whether the list is on screen in game, which OneConfig uses for every HUD's "Show in Tab" setting */
+    fun isOpenInGame(): Boolean = !HudManager.isEditing && hasLiveData() && isRendering()
+
+    override fun shouldShow() = previewing() || pollOpen(keyDown()) || isRendering()
+
     //? if > 1.8.9 {
-    override fun shouldShow() = previewing() || isRendering() || mc.options.keyPlayerList.isDown
+    private fun keyDown() = mc.options.keyPlayerList.isDown
 
     override fun hasLiveData() = mc.connection?.listedOnlinePlayers?.let { it.size > 1 || it.isNotEmpty() && !mc.isLocalServer } == true
     //?} else {
-    /*override fun shouldShow() = previewing() || isRendering() || mc.options.playerListKey.isPressed
+    /*private fun keyDown() = mc.options.playerListKey.isPressed
 
     override fun hasLiveData() = mc.networkHandler?.onlinePlayers?.let { it.size > 1 || it.isNotEmpty() && !mc.isIntegratedServerRunning } == true
     *///?}

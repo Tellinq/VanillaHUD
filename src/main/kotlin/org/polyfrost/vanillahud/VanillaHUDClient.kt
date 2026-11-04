@@ -26,6 +26,7 @@ import org.polyfrost.vanillahud.hud.TitleHud
 import org.polyfrost.vanillahud.hud.VanillaHud
 import org.polyfrost.vanillahud.util.ForceDefaultPosition
 import org.polyfrost.vanillahud.util.HudConfigMigrator
+import java.util.function.BooleanSupplier
 
 object VanillaHUDClient : ClientModInitializer {
     override fun onInitializeClient() {
@@ -54,6 +55,8 @@ object VanillaHUDClient : ClientModInitializer {
         Huds.all.forEach {
             HudManager.register(it, "vanillahud", "/assets/vanillahud/vanillahud_dark.svg")
         }
+        // the tab list's key mode decides when it is open, not whether vanilla's key is held
+        HudManager.tabListVisibility = BooleanSupplier { Huds.tabList.isOpenInGame() }
 
         HudGroups.registerDefault(
             "vanillahud-hotbar", "Hotbar",
